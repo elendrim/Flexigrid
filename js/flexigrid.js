@@ -1,75 +1,43 @@
 /*
- * Flexigrid for jQuery -  v1.1
+ * Flexigrid for jQuery -  v1.2 beta
  *
  * Copyright (c) 2008 Paulo P. Marinas (code.google.com/p/flexigrid/)
  * Dual licensed under the MIT or GPL Version 2 licenses.
  * http://jquery.org/license
+ * 
+ * Modified by Grégory OLIVER
  *
  */
 (function ($) {
-	/*
-	 * jQuery 1.9 support. browser object has been removed in 1.9 
-	 */
-	var browser = $.browser
 	
-	if (!browser) {
-		function uaMatch( ua ) {
-			ua = ua.toLowerCase();
-
-			var match = /(chrome)[ \/]([\w.]+)/.exec( ua ) ||
-				/(webkit)[ \/]([\w.]+)/.exec( ua ) ||
-				/(opera)(?:.*version|)[ \/]([\w.]+)/.exec( ua ) ||
-				/(msie) ([\w.]+)/.exec( ua ) ||
-				ua.indexOf("compatible") < 0 && /(mozilla)(?:.*? rv:([\w.]+)|)/.exec( ua ) ||
-				[];
-
-			return {
-				browser: match[ 1 ] || "",
-				version: match[ 2 ] || "0"
-			};
+	$.getStateFromSessionStorage = function (p) {
+		var param = null;
+		var paramJson = sessionStorage.getItem(p.uniqueId);
+		if ( paramJson != null ) {
+			param = JSON.parse(paramJson);
+		}
+		return param;
+	},
+	
+	$.saveStateToSessionStorage = function(p) {
+		
+		var param = {
+			'newp': p.page,
+			'rp': p.rp,
+			'sortname': p.sortname,
+			'sortorder': p.sortorder,
+			'query': p.query,
+			'qtype': p.qtype,
+			'selection': p.selection
 		};
-
-		var matched = uaMatch( navigator.userAgent );
-		browser = {};
-
-		if ( matched.browser ) {
-			browser[ matched.browser ] = true;
-			browser.version = matched.version;
+		
+		if ( window.console ) {
+			console.log('selection:'+param.selection);
 		}
-
-		// Chrome is Webkit, but Webkit is also Safari.
-		if ( browser.chrome ) {
-			browser.webkit = true;
-		} else if ( browser.webkit ) {
-			browser.safari = true;
-		}
-	}
+		
+		sessionStorage.setItem(p.uniqueId, JSON.stringify(param));
+	},
 	
-    /*!
-     * START code from jQuery UI
-     *
-     * Copyright 2011, AUTHORS.txt (http://jqueryui.com/about)
-     * Dual licensed under the MIT or GPL Version 2 licenses.
-     * http://jquery.org/license
-     *
-     * http://docs.jquery.com/UI
-     */
-     
-    if(typeof $.support.selectstart != 'function') {
-        $.support.selectstart = "onselectstart" in document.createElement("div");
-    }
-    
-    if(typeof $.fn.disableSelection != 'function') {
-        $.fn.disableSelection = function() {
-            return this.bind( ( $.support.selectstart ? "selectstart" : "mousedown" ) +
-                ".ui-disableSelection", function( event ) {
-                event.preventDefault();
-            });
-        };
-    }
-    
-    /* END code from jQuery UI */
-    
 	$.addFlex = function (t, p) {
 		if (t.grid) return false; //return if already exist
 		p = $.extend({ //apply default properties
@@ -90,9 +58,8 @@
 			total: 1, //total pages
 			useRp: true, //use the results per page select box
 			rp: 15, //results per page
-			rpOptions: [10, 15, 20, 30, 50], //allowed per-page values
+			rpOptions: [10, 15, 20, 30, 50], //allowed per-page values 
 			title: false,
-			idProperty: 'id',
 			pagestat: 'Displaying {from} to {to} of {total} items',
 			pagetext: 'Page',
 			outof: 'of',
@@ -108,8 +75,6 @@
 			autoload: true,
 			blockOpacity: 0.5,
 			preProcess: false,
-			addTitleToCell: false, // add a title attr to cells with truncated contents
-			dblClickResize: false, //auto resize column by double clicking
 			onDragCol: false,
 			onToggleCol: false,
 			onChangeSort: false,
@@ -117,23 +82,18 @@
 			onSuccess: false,
 			onError: false,
 			onSubmit: false, //using a custom populate function
-            __mw: { //extendable middleware function holding object
-                datacol: function(p, col, val) { //middleware for formatting data columns
-                    var _col = (typeof p.datacol[col] == 'function') ? p.datacol[col](val) : val; //format column using function
-                    if(typeof p.datacol['*'] == 'function') { //if wildcard function exists
-                        return p.datacol['*'](_col); //run wildcard function
-                    } else {
-                        return _col; //return column without wildcard
-                    }
-                }
-            },
-            getGridClass: function(g) { //get the grid class, always returns g
-                return g;
-            },
-            datacol: {}, //datacol middleware object 'colkey': function(colval) {}
-            colResize: true, //from: http://stackoverflow.com/a/10615589
-            colMove: true
+			selection: [],
+			saveStateToStorage: false,
+			uniqueId: 'flexigridUID'
 		}, p);
+		
+		if ( p.saveStateToStorage ) {
+			var state = $.getStateFromSessionStorage(p);
+			if ( state != null ) {
+				p = $.extend(p, state);	
+			}
+		}
+		
 		$(t).show() //show if hidden
 			.attr({
 				cellPadding: 0,
@@ -151,21 +111,20 @@
 					top: g.hDiv.offsetTop + 1
 				});
 				var cdpad = this.cdpad;
-				var cdcounter=0;
 				$('div', g.cDrag).hide();
 				$('thead tr:first th:visible', this.hDiv).each(function () {
 					var n = $('thead tr:first th:visible', g.hDiv).index(this);
-					var cdpos = parseInt($('div', this).width());
+					var cdpos = parseInt($('div', this).width(), 10);
 					if (cdleft == 0) cdleft -= Math.floor(p.cgwidth / 2);
+					
 					cdpos = cdpos + cdleft + cdpad;
 					if (isNaN(cdpos)) {
 						cdpos = 0;
 					}
 					$('div:eq(' + n + ')', g.cDrag).css({
-						'left': (!(browser.mozilla) ? cdpos - cdcounter : cdpos) + 'px'
+						'left': cdpos + 'px'
 					}).show();
 					cdleft = cdpos;
-					cdcounter++;
 				});
 			},
 			fixHeight: function (newH) {
@@ -191,7 +150,7 @@
 				});
 			},
 			dragStart: function (dragtype, e, obj) { //default drag function start
-                if (dragtype == 'colresize' && p.colResize === true) {//column resize
+				if (dragtype == 'colresize') {//column resize
 					$(g.nDiv).hide();
 					$(g.nBtn).hide();
 					var n = $('div', this.cDrag).index(obj);
@@ -220,30 +179,27 @@
 						hgo: hgo
 					};
 				} else if (dragtype == 'colMove') {//column header drag
-                    $(e.target).disableSelection(); //disable selecting the column header
-                    if((p.colMove === true)) {
-                        $(g.nDiv).hide();
-                        $(g.nBtn).hide();
-                        this.hset = $(this.hDiv).offset();
-                        this.hset.right = this.hset.left + $('table', this.hDiv).width();
-                        this.hset.bottom = this.hset.top + $('table', this.hDiv).height();
-                        this.dcol = obj;
-                        this.dcoln = $('th', this.hDiv).index(obj);
-                        this.colCopy = document.createElement("div");
-                        this.colCopy.className = "colCopy";
-                        this.colCopy.innerHTML = obj.innerHTML;
-                        if (browser.msie) {
-                            this.colCopy.className = "colCopy ie";
-                        }
-                        $(this.colCopy).css({
-                            position: 'absolute',
-                            'float': 'left',
-                            display: 'none',
-                            textAlign: obj.align
-                        });
-                        $('body').append(this.colCopy);
-                        $(this.cDrag).hide();
-                    }
+					$(g.nDiv).hide();
+					$(g.nBtn).hide();
+					this.hset = $(this.hDiv).offset();
+					this.hset.right = this.hset.left + $('table', this.hDiv).width();
+					this.hset.bottom = this.hset.top + $('table', this.hDiv).height();
+					this.dcol = obj;
+					this.dcoln = $('th', this.hDiv).index(obj);
+					this.colCopy = document.createElement("div");
+					this.colCopy.className = "colCopy";
+					this.colCopy.innerHTML = obj.innerHTML;
+					if ($.browser.msie) {
+						this.colCopy.className = "colCopy ie";
+					}
+					$(this.colCopy).css({
+						position: 'absolute',
+						float: 'left',
+						display: 'none',
+						textAlign: obj.align
+					});
+					$('body').append(this.colCopy);
+					$(this.cDrag).hide();
 				}
 				$('body').noSelect();
 			},
@@ -300,9 +256,7 @@
 					$('th:visible div:eq(' + n + ')', this.hDiv).css('width', nw);
 					$('tr', this.bDiv).each(
 						function () {
-							var $tdDiv = $('td:visible div:eq(' + n + ')', this);
-							$tdDiv.css('width', nw);
-							g.addTitleToCell($tdDiv);
+							$('td:visible div:eq(' + n + ')', this).css('width', nw);
 						}
 					);
 					this.hDiv.scrollLeft = this.bDiv.scrollLeft;
@@ -311,15 +265,11 @@
 					this.rePosDrag();
 					this.fixHeight();
 					this.colresize = false;
-					if ($.cookies) {
-						var name = p.colModel[n].name;		// Store the widths in the cookies
-						$.cookie('flexiwidths/'+name, nw);
-					}
 				} else if (this.vresize) {
 					this.vresize = false;
 				} else if (this.colCopy) {
 					$(this.colCopy).remove();
-					if (this.dcolt !== null) {
+					if (this.dcolt != null) {
 						if (this.dcoln > this.dcolt) $('th:eq(' + this.dcolt + ')', this.hDiv).before(this.dcol);
 						else $('th:eq(' + this.dcolt + ')', this.hDiv).after(this.dcol);
 						this.switchCol(this.dcoln, this.dcolt);
@@ -388,7 +338,7 @@
 				} else {
 					$('tr:eq(' + cdrop + ')', this.nDiv).after($('tr:eq(' + cdrag + ')', this.nDiv));
 				}
-				if (browser.msie && browser.version < 7.0) {
+				if ($.browser.msie && $.browser.version < 7.0) {
 					$('tr:eq(' + cdrop + ') input', this.nDiv)[0].checked = true;
 				}
 				this.hDiv.scrollLeft = this.bDiv.scrollLeft;
@@ -408,7 +358,6 @@
 				this.loading = false;
 				if (!data) {
 					$('.pPageStat', this.pDiv).html(p.errormsg);
-                    if (p.onSuccess) p.onSuccess(this);
 					return false;
 				}
 				if (p.dataType == 'xml') {
@@ -416,14 +365,13 @@
 				} else {
 					p.total = data.total;
 				}
-				if (p.total === 0) {
+				if (p.total == 0) {
 					$('tr, a, td, div', t).unbind();
 					$(t).empty();
 					p.pages = 1;
 					p.page = 1;
 					this.buildpager();
 					$('.pPageStat', this.pDiv).html(p.nomsg);
-                    if (p.onSuccess) p.onSuccess(this);
 					return false;
 				}
 				p.pages = Math.ceil(p.total / p.rp);
@@ -438,46 +386,30 @@
 				if (p.dataType == 'json') {
 					$.each(data.rows, function (i, row) {
 						var tr = document.createElement('tr');
-						if (row.name) tr.name = row.name;
-						if (row.color) {
-							$(tr).css('background',row.color);
-						} else {
-							if (i % 2 && p.striped) tr.className = 'erow';
+						if (i % 2 && p.striped) {
+							tr.className = 'erow';
 						}
-						if (row[p.idProperty]) {
-							tr.id = 'row' + row[p.idProperty];
+						if (row.id) {
+							tr.id = 'row' + row.id;
 						}
 						$('thead tr:first th', g.hDiv).each( //add cell
 							function () {
 								var td = document.createElement('td');
 								var idx = $(this).attr('axis').substr(3);
 								td.align = this.align;
-								// If each row is the object itself (no 'cell' key)
-								if (typeof row.cell == 'undefined') {
-									td.innerHTML = row[p.colModel[idx].name];
+								// If the json elements aren't named (which is typical), use numeric order
+								if (typeof row.cell[idx] != "undefined") {
+									td.innerHTML = (row.cell[idx] != null) ? row.cell[idx] : '';//null-check for Opera-browser
 								} else {
-									// If the json elements aren't named (which is typical), use numeric order
-                                    var iHTML = '';
-                                    if (typeof row.cell[idx] != "undefined") {
-                                        iHTML = (row.cell[idx] !== null) ? row.cell[idx] : ''; //null-check for Opera-browser
-                                    } else {
-                                        iHTML = row.cell[p.colModel[idx].name];
-                                    }
-                                    td.innerHTML = p.__mw.datacol(p, $(this).attr('abbr'), iHTML); //use middleware datacol to format cols
+									td.innerHTML = row.cell[p.colModel[idx].name];
 								}
-								// If the content has a <BGCOLOR=nnnnnn> option, decode it.
-								var offs = td.innerHTML.indexOf( '<BGCOLOR=' );
-								if( offs >0 ) {
-                                    $(td).css('background', text.substr(offs+7,7) );
-								}
-
 								$(td).attr('abbr', $(this).attr('abbr'));
 								$(tr).append(td);
 								td = null;
 							}
 						);
 						if ($('thead', this.gDiv).length < 1) {//handle if grid has no headers
-							for (idx = 0; idx < row.cell.length; idx++) {
+							for (var idx = 0; idx < cell.length; idx++) {
 								var td = document.createElement('td');
 								// If the json elements aren't named (which is typical), use numeric order
 								if (typeof row.cell[idx] != "undefined") {
@@ -497,11 +429,8 @@
 					$("rows row", data).each(function () {
 						i++;
 						var tr = document.createElement('tr');
-						if ($(this).attr('name')) tr.name = $(this).attr('name');
-						if ($(this).attr('color')) {
-							$(tr).css('background',$(this).attr('id'));
-						} else {
-							if (i % 2 && p.striped) tr.className = 'erow';
+						if (i % 2 && p.striped) {
+							tr.className = 'erow';
 						}
 						var nid = $(this).attr('id');
 						if (nid) {
@@ -513,13 +442,7 @@
 							var td = document.createElement('td');
 							var idx = $(this).attr('axis').substr(3);
 							td.align = this.align;
-
-							var text = $("cell:eq(" + idx + ")", robj).text();
-							var offs = text.indexOf( '<BGCOLOR=' );
-							if( offs >0 ) {
-								$(td).css('background',	 text.substr(offs+7,7) );
-							}
-                            td.innerHTML = p.__mw.datacol(p, $(this).attr('abbr'), text); //use middleware datacol to format cols
+							td.innerHTML = $("cell:eq(" + idx + ")", robj).text();
 							$(td).attr('abbr', $(this).attr('abbr'));
 							$(tr).append(td);
 							td = null;
@@ -543,19 +466,26 @@
 				this.addCellProp();
 				this.addRowProp();
 				this.rePosDrag();
+				this.fixHeight();
 				tbody = null;
 				data = null;
 				i = null;
 				if (p.onSuccess) {
 					p.onSuccess(this);
 				}
+				if ( p.saveStateToStorage ) {
+					$.saveStateToSessionStorage(p);
+				}
+				this.refreshSelection();
+				
 				if (p.hideOnSubmit) {
 					$(g.block).remove();
 				}
 				this.hDiv.scrollLeft = this.bDiv.scrollLeft;
-				if (browser.opera) {
+				if ($.browser.opera) {
 					$(t).css('visibility', 'visible');
 				}
+				this.ie9Fix();
 			},
 			changeSort: function (th) { //change sortorder
 				if (this.loading) {
@@ -617,7 +547,7 @@
 				if (p.hideOnSubmit) {
 					$(this.gDiv).prepend(g.block);
 				}
-				if (browser.opera) {
+				if ($.browser.opera) {
 					$(t).css('visibility', 'hidden');
 				}
 				if (!p.newp) {
@@ -748,7 +678,6 @@
 						if (pth.process) pth.process(tdDiv, pid);
 					}
 					$(this).empty().append(tdDiv).removeAttr('width'); //wrap content
-					g.addTitleToCell(tdDiv);
 				});
 			},
 			getCellDim: function (obj) {// get cell prop for editable event
@@ -783,6 +712,8 @@
 					if (p.singleSelect && ! g.multisel) {
 						$(this).siblings().removeClass('trSelected');
 					}
+
+					g.setSelection();
 				}).on('mousedown', function (e) {
 					if (e.shiftKey) {
 						$(this).toggleClass('trSelected');
@@ -792,11 +723,11 @@
 					}
 					if (e.ctrlKey || e.metaKey) {
 						$(this).toggleClass('trSelected');
-						g.multisel = true;
+//						g.multisel = true;
 						this.focus();
 					}
-				}).on('mouseup', function (e) {
-					if (g.multisel && ! (e.ctrlKey || e.metaKey)) {
+				}).on('mouseup', function () {
+					if (g.multisel) {
 						g.multisel = false;
 						$(g.gDiv).noSelect(false);
 					}
@@ -804,133 +735,137 @@
 					if (p.onDoubleClick) {
 						p.onDoubleClick(this, g, p);
 					}
+				}).on("mouseleave", function() { 
+					g.ie9Fix();
 				}).hover(function (e) {
-					if (g.multisel && e.shiftKey) {
+					if (g.multisel) {
 						$(this).toggleClass('trSelected');
 					}
 				}, function () {});
-				if (browser.msie && browser.version < 7.0) {
+				if ($.browser.msie && $.browser.version < 7.0) {
 					$(this).hover(function () {
 						$(this).addClass('trOver');
 					}, function () {
 						$(this).removeClass('trOver');
 					});
 				}
+				
 			},
-
-			combo_flag: true,
-			combo_resetIndex: function(selObj)
-			{
-				if(this.combo_flag) {
-					selObj.selectedIndex = 0;
-				}
-				this.combo_flag = true;
-			},
-			combo_doSelectAction: function(selObj)
-			{
-				eval( selObj.options[selObj.selectedIndex].value );
-				selObj.selectedIndex = 0;
-				this.combo_flag = false;
-			},
-			//Add title attribute to div if cell contents is truncated
-			addTitleToCell: function(tdDiv) {
-				if(p.addTitleToCell) {
-					var $span = $('<span />').css('display', 'none'),
-						$div = (tdDiv instanceof jQuery) ? tdDiv : $(tdDiv),
-						div_w = $div.outerWidth(),
-						span_w = 0;
-
-					$('body').children(':first').before($span);
-					$span.html($div.html());
-					$span.css('font-size', '' + $div.css('font-size'));
-					$span.css('padding-left', '' + $div.css('padding-left'));
-					span_w = $span.innerWidth();
-					$span.remove();
-
-					if(span_w > div_w) {
-						$div.attr('title', $div.text());
+			
+			/** 
+			 * selection added by ADGOL01 
+			 * */
+			setSelection: function(searchListSelection) {
+				// if searchListSelection != null => force the selection
+				
+				if ( searchListSelection == null  ) {
+					
+					searchListSelection = p.selection;
+					
+					if ( p.singleSelect ) {
+						searchListSelection = Array();
 					} else {
-						$div.removeAttr('title');
+						$('tbody tr', g.bDiv).each( function(){
+				            var id = $(this).attr('id').substr(3);
+				            if ( jQuery.inArray(id, searchListSelection) != -1 ) {
+				            	searchListSelection.splice(jQuery.inArray(id, searchListSelection), 1);
+				            }
+				        });
 					}
+				
+			        $('.trSelected', g.bDiv).each( function(){
+			            var id = $(this).attr('id').substr(3);
+			            if ( jQuery.inArray(id, searchListSelection) == -1  ) {
+			                searchListSelection.push(id);
+			            }
+			        });
+				} 
+				
+				p.selection = searchListSelection;
+				
+				if ( p.saveStateToStorage ) {
+					$.saveStateToSessionStorage(p);
 				}
+				
+				this.refreshSelection();
 			},
-			autoResizeColumn: function (obj) {
-				if(!p.dblClickResize) {
-					return;
+			
+			getSelection: function() {
+				return p.selection;
+			},
+			
+			refreshSelection: function () {
+		        var searchListSelection = p.selection;
+				
+		        if ( searchListSelection == -1 ) {
+		        	$("tbody tr", g.bDiv).each( function() {
+			            $(this).addClass("trSelected");
+			        });
+		        } else if ( searchListSelection.length > 0 ) {
+		        	$("tbody tr", g.bDiv).each( function() {
+			            var id = $(this).attr('id').substr(3);
+			            if ( jQuery.inArray(id, searchListSelection) != -1 ) {
+			                $(this).addClass("trSelected");
+			            } else {
+			            	$(this).removeClass("trSelected");
+			            }
+			        });
+		        } else {
+		        	$("tbody tr", g.bDiv).each( function() {
+			            $(this).removeClass("trSelected");
+			        });
+		        }
+		    },
+		    
+		    /**
+		     * ie9 FIX added by ADGOL01
+		     */
+		    ie9Fix: function() {
+				if ($.browser.msie && $.browser.version >= 9.0) {
+					var bDivH = $(this.bDiv).height();
+			        var bDivTH = $('table', this.bDiv).height();
+			        if(bDivH != bDivTH && p.height=='auto') {
+			        	$(this.bDiv).css({height: bDivTH + 18});
+			        }
 				}
-				var n = $('div', this.cDrag).index(obj),
-					$th = $('th:visible div:eq(' + n + ')', this.hDiv),
-					ol = parseInt(obj.style.left, 10),
-					ow = $th.width(),
-					nw = 0,
-					nl = 0,
-					$span = $('<span />');
-				$('body').children(':first').before($span);
-				$span.html($th.html());
-				$span.css('font-size', '' + $th.css('font-size'));
-				$span.css('padding-left', '' + $th.css('padding-left'));
-				$span.css('padding-right', '' + $th.css('padding-right'));
-				nw = $span.width();
-				$('tr', this.bDiv).each(function () {
-					var $tdDiv = $('td:visible div:eq(' + n + ')', this),
-						spanW = 0;
-					$span.html($tdDiv.html());
-					$span.css('font-size', '' + $tdDiv.css('font-size'));
-					$span.css('padding-left', '' + $tdDiv.css('padding-left'));
-					$span.css('padding-right', '' + $tdDiv.css('padding-right'));
-					spanW = $span.width();
-					nw = (spanW > nw) ? spanW : nw;
-				});
-				$span.remove();
-				nw = (p.minWidth > nw) ? p.minWidth : nw;
-				nl = ol + (nw - ow);
-				$('div:eq(' + n + ')', this.cDrag).css('left', nl);
-				this.colresize = {
-					nw: nw,
-					n: n
-				};
-				g.dragEnd();
+		    },
+		    
+		    /**
+		     * recalcul layout when used with jquery tabs.
+		     */
+		    recalcLayout: function() {
+				g.toggleCol(0, !$('nDiv', this).find('input:eq[0]').val());
+                var cdheight = $(g.bDiv).height();
+		        var hdheight = $(g.hDiv).height();
+			    $('div',g.cDrag).each ( function() {
+			    	$(this).css({height: cdheight + hdheight});
+		     	});
 			},
+			
 			pager: 0
 		};
-        
-        g = p.getGridClass(g); //get the grid class
-        
 		if (p.colModel) { //create model if any
 			thead = document.createElement('thead');
 			var tr = document.createElement('tr');
 			for (var i = 0; i < p.colModel.length; i++) {
 				var cm = p.colModel[i];
 				var th = document.createElement('th');
+				th.innerHTML = cm.display;
+				if (cm.name && cm.sortable) {
+					$(th).attr('abbr', cm.name);
+				}
 				$(th).attr('axis', 'col' + i);
-				if( cm ) {	// only use cm if its defined
-					if ($.cookies) {
-						var cookie_width = 'flexiwidths/'+cm.name;		// Re-Store the widths in the cookies
-						if( $.cookie(cookie_width) != undefined ) {
-							cm.width = $.cookie(cookie_width);
-						}
-					}
-					if( cm.display != undefined ) {
-						th.innerHTML = cm.display;
-					}
-					if (cm.name && cm.sortable) {
-						$(th).attr('abbr', cm.name);
-					}
-					if (cm.align) {
-						th.align = cm.align;
-					}
-					if (cm.width) {
-						$(th).attr('width', cm.width);
-					}
-					if ($(cm).attr('hide')) {
-						th.hidden = true;
-					}
-					if (cm.process) {
-						th.process = cm.process;
-					}
-				} else {
-					th.innerHTML = "";
-					$(th).attr('width',30);
+				if (cm.align) {
+					th.align = cm.align;
+				}
+				if (cm.width) {
+					$(th).attr('width', cm.width);
+				}
+				if ($(cm).attr('hide')) {
+					th.hidden = true;
+				}
+				if (cm.process) {
+					th.process = cm.process;
 				}
 				$(tr).append(th);
 			}
@@ -952,21 +887,16 @@
 		g.tDiv = document.createElement('div'); //create toolbar
 		g.sDiv = document.createElement('div');
 		g.pDiv = document.createElement('div'); //create pager container
-        
-        if(p.colResize === false) { //don't display column drag if we are not using it
-            $(g.cDrag).css('display', 'none');
-        }
-        
 		if (!p.usepager) {
 			g.pDiv.style.display = 'none';
 		}
 		g.hTable = document.createElement('table');
 		g.gDiv.className = 'flexigrid';
 		if (p.width != 'auto') {
-			g.gDiv.style.width = p.width + isNaN(p.width) ? '' : 'px';
-		} 
+			g.gDiv.style.width = p.width + 'px';
+		}
 		//add conditional classes
-		if (browser.msie) {
+		if ($.browser.msie) {
 			$(g.gDiv).addClass('ie');
 		}
 		if (p.novstripe) {
@@ -984,29 +914,19 @@
 				if (!btn.separator) {
 					var btnDiv = document.createElement('div');
 					btnDiv.className = 'fbutton';
-					btnDiv.innerHTML = ("<div><span>") + (btn.hidename ? "&nbsp;" : btn.name) + ("</span></div>");
+					btnDiv.innerHTML = "<div><span>" + btn.name + "</span></div>";
 					if (btn.bclass) $('span', btnDiv).addClass(btn.bclass).css({
 						paddingLeft: 20
 					});
-					if (btn.bimage) // if bimage defined, use its string as an image url for this buttons style (RS)
-						$('span',btnDiv).css( 'background', 'url('+btn.bimage+') no-repeat center left' );
-						$('span',btnDiv).css( 'paddingLeft', 20 );
-
-					if (btn.tooltip) // add title if exists (RS)
-						$('span',btnDiv)[0].title = btn.tooltip;
-
 					btnDiv.onpress = btn.onpress;
 					btnDiv.name = btn.name;
-					if (btn.id) {
-						btnDiv.id = btn.id;
-					}
 					if (btn.onpress) {
 						$(btnDiv).click(function () {
-							this.onpress(this.id || this.name, g.gDiv);
+							this.onpress(this.name, g.gDiv);
 						});
 					}
 					$(tDiv2).append(btnDiv);
-					if (browser.msie && browser.version < 7.0) {
+					if ($.browser.msie && $.browser.version < 7.0) {
 						$(btnDiv).hover(function () {
 							$(this).addClass('fbOver');
 						}, function () {
@@ -1022,50 +942,6 @@
 			$(g.gDiv).prepend(g.tDiv);
 		}
 		g.hDiv.className = 'hDiv';
-
-		// Define a combo button set with custom action'ed calls when clicked.
-		if( p.combobuttons && $(g.tDiv2) )
-		{
-			var btnDiv = document.createElement('div');
-			btnDiv.className = 'fbutton';
-
-			var tSelect = document.createElement('select');
-			$(tSelect).change( function () { g.combo_doSelectAction( tSelect ) } );
-			$(tSelect).click( function () { g.combo_resetIndex( tSelect) } );
-			tSelect.className = 'cselect';
-			$(btnDiv).append(tSelect);
-
-			for (i=0;i<p.combobuttons.length;i++)
-			{
-				var btn = p.combobuttons[i];
-				if (!btn.separator)
-				{
-					var btnOpt = document.createElement('option');
-					btnOpt.innerHTML = btn.name;
-
-					if (btn.bclass)
-						$(btnOpt)
-						.addClass(btn.bclass)
-						.css({paddingLeft:20})
-						;
-					if (btn.bimage)  // if bimage defined, use its string as an image url for this buttons style (RS)
-						$(btnOpt).css( 'background', 'url('+btn.bimage+') no-repeat center left' );
-						$(btnOpt).css( 'paddingLeft', 20 );
-
-					if (btn.tooltip) // add title if exists (RS)
-						$(btnOpt)[0].title = btn.tooltip;
-
-					if (btn.onpress)
-					{
-						btnOpt.value = btn.onpress;
-					}
-					$(tSelect).append(btnOpt);
-				}
-			}
-			$('.tDiv2').append(btnDiv);
-		}
-
-
 		$(t).before(g.hDiv);
 		g.hTable.cellPadding = 0;
 		g.hTable.cellSpacing = 0;
@@ -1095,13 +971,6 @@
 			if (!p.colmodel) {
 				$(this).attr('axis', 'col' + ci++);
 			}
-			
-			// if there isn't a default width, then the column headers don't match
-			// i'm sure there is a better way, but this at least stops it failing
-			if (this.width == '') {
-				this.width = 100;
-			}
-			
 			$(thdiv).css({
 				textAlign: this.align,
 				width: this.width + 'px'
@@ -1177,7 +1046,7 @@
 		$(g.bDiv).css({
 			height: (p.height == 'auto') ? 'auto' : p.height + "px"
 		}).scroll(function (e) {
-			g.scroll()
+			g.scroll();
 		}).append(t);
 		if (p.height == 'auto') {
 			$('table', g.bDiv).addClass('autoht');
@@ -1185,53 +1054,52 @@
 		//add td & row properties
 		g.addCellProp();
 		g.addRowProp();
-        //set cDrag only if we are using it
-        if (p.colResize === true) {
-            var cdcol = $('thead tr:first th:first', g.hDiv).get(0);
-            if(cdcol !== null) {
-                g.cDrag.className = 'cDrag';
-                g.cdpad = 0;
-                g.cdpad += (isNaN(parseInt($('div', cdcol).css('borderLeftWidth'), 10)) ? 0 : parseInt($('div', cdcol).css('borderLeftWidth'), 10));
-                g.cdpad += (isNaN(parseInt($('div', cdcol).css('borderRightWidth'), 10)) ? 0 : parseInt($('div', cdcol).css('borderRightWidth'), 10));
-                g.cdpad += (isNaN(parseInt($('div', cdcol).css('paddingLeft'), 10)) ? 0 : parseInt($('div', cdcol).css('paddingLeft'), 10));
-                g.cdpad += (isNaN(parseInt($('div', cdcol).css('paddingRight'), 10)) ? 0 : parseInt($('div', cdcol).css('paddingRight'), 10));
-                g.cdpad += (isNaN(parseInt($(cdcol).css('borderLeftWidth'), 10)) ? 0 : parseInt($(cdcol).css('borderLeftWidth'), 10));
-                g.cdpad += (isNaN(parseInt($(cdcol).css('borderRightWidth'), 10)) ? 0 : parseInt($(cdcol).css('borderRightWidth'), 10));
-                g.cdpad += (isNaN(parseInt($(cdcol).css('paddingLeft'), 10)) ? 0 : parseInt($(cdcol).css('paddingLeft'), 10));
-                g.cdpad += (isNaN(parseInt($(cdcol).css('paddingRight'), 10)) ? 0 : parseInt($(cdcol).css('paddingRight'), 10));
-                $(g.bDiv).before(g.cDrag);
-                var cdheight = $(g.bDiv).height();
-                var hdheight = $(g.hDiv).height();
-                $(g.cDrag).css({
-                    top: -hdheight + 'px'
-                });
-                $('thead tr:first th', g.hDiv).each(function() {
-                    var cgDiv = document.createElement('div');
-                    $(g.cDrag).append(cgDiv);
-                    if (!p.cgwidth) {
-                        p.cgwidth = $(cgDiv).width();
-                    }
-                    $(cgDiv).css({
-                        height: cdheight + hdheight
-                    }).mousedown(function(e) {
-                        g.dragStart('colresize', e, this);
-                    }).dblclick(function(e) {
-                        g.autoResizeColumn(this);
-                    });
-                    if (browser.msie && browser.version < 7.0) {
-                        g.fixHeight($(g.gDiv).height());
-                        $(cgDiv).hover(function() {
-                            g.fixHeight();
-                            $(this).addClass('dragging');
-                        }, function() {
-                            if(!g.colresize) {
-                                $(this).removeClass('dragging');
-                            }
-                        });
-                    }
-                });
-            }
-        }
+		//set cDrag
+		var cdcol = $('thead tr:first th:first', g.hDiv).get(0);
+		if (cdcol != null) {
+			g.cDrag.className = 'cDrag';
+			g.cdpad = 0;
+			
+			g.cdpad += (isNaN(parseFloat($('div', cdcol).css('borderLeftWidth'), 10)) ? 0 : Math.round(parseFloat($('div', cdcol).css('borderLeftWidth'), 10)));
+			g.cdpad += (isNaN(parseFloat($('div', cdcol).css('borderRightWidth'), 10)) ? 0 : Math.round(parseFloat($('div', cdcol).css('borderRightWidth'), 10)));
+			g.cdpad += (isNaN(parseFloat($('div', cdcol).css('paddingLeft'), 10)) ? 0 : Math.round(parseFloat($('div', cdcol).css('paddingLeft'), 10)));
+			g.cdpad += (isNaN(parseFloat($('div', cdcol).css('paddingRight'), 10)) ? 0 : Math.round(parseFloat($('div', cdcol).css('paddingRight'), 10)));
+			g.cdpad += (isNaN(parseFloat($(cdcol).css('borderLeftWidth'), 10)) ? 0 : Math.round(parseFloat($(cdcol).css('borderLeftWidth'), 10)));
+			g.cdpad += (isNaN(parseFloat($(cdcol).css('borderRightWidth'), 10)) ? 0 : Math.round(parseFloat($(cdcol).css('borderRightWidth'), 10)));
+			g.cdpad += (isNaN(parseFloat($(cdcol).css('paddingLeft'), 10)) ? 0 : Math.round(parseFloat($(cdcol).css('paddingLeft'), 10)));
+			g.cdpad += (isNaN(parseFloat($(cdcol).css('paddingRight'), 10)) ? 0 : Math.round(parseFloat($(cdcol).css('paddingRight'), 10)));
+			
+			
+			$(g.bDiv).before(g.cDrag);
+			var cdheight = $(g.bDiv).height();
+			var hdheight = $(g.hDiv).height();
+			$(g.cDrag).css({
+				top: -hdheight + 'px'
+			});
+			$('thead tr:first th', g.hDiv).each(function () {
+				var cgDiv = document.createElement('div');
+				$(g.cDrag).append(cgDiv);
+				if (!p.cgwidth) {
+					p.cgwidth = $(cgDiv).width();
+				}
+				$(cgDiv).css({
+					height: cdheight + hdheight
+				}).mousedown(function (e) {
+					g.dragStart('colresize', e, this);
+				});
+				if ($.browser.msie && $.browser.version < 7.0) {
+					g.fixHeight($(g.gDiv).height());
+					$(cgDiv).hover(function () {
+						g.fixHeight();
+						$(this).addClass('dragging');
+					}, function () {
+						if (!g.colresize) {
+							$(this).removeClass('dragging');
+						}
+					});
+				}
+			});
+		}
 		//add strip
 		if (p.striped) {
 			$('tbody tr:odd', g.bDiv).addClass('erow');
@@ -1248,7 +1116,7 @@
 			$(g.rDiv).mousedown(function (e) {
 				g.dragStart('vresize', e, true);
 			}).html('<span></span>').css('height', $(g.gDiv).height());
-			if (browser.msie && browser.version < 7.0) {
+			if ($.browser.msie && $.browser.version < 7.0) {
 				$(g.rDiv).hover(function () {
 					$(this).addClass('hgOver');
 				}, function () {
@@ -1280,11 +1148,9 @@
 				g.changePage('last');
 			});
 			$('.pcontrol input', g.pDiv).keydown(function (e) {
-				if (e.keyCode == 13) { 
-                    g.changePage('input');
-				}
+				if (e.keyCode == 13) g.changePage('input');
 			});
-			if (browser.msie && browser.version < 7) $('.pButton', g.pDiv).hover(function () {
+			if ($.browser.msie && $.browser.version < 7) $('.pButton', g.pDiv).hover(function () {
 				$(this).addClass('pBtnOver');
 			}, function () {
 				$(this).removeClass('pBtnOver');
@@ -1321,7 +1187,7 @@
 				var sitems = p.searchitems;
 				var sopt = '', sel = '';
 				for (var s = 0; s < sitems.length; s++) {
-					if (p.qtype === '' && sitems[s].isdefault === true) {
+					if (p.qtype == '' && sitems[s].isdefault == true) {
 						p.qtype = sitems[s].name;
 						sel = 'selected="selected"';
 					} else {
@@ -1329,10 +1195,10 @@
 					}
 					sopt += "<option value='" + sitems[s].name + "' " + sel + " >" + sitems[s].display + "&nbsp;&nbsp;</option>";
 				}
-				if (p.qtype === '') {
+				if (p.qtype == '') {
 					p.qtype = sitems[0].name;
 				}
-				$(g.sDiv).append("<div class='sDiv2'>" + p.findtext +
+				$(g.sDiv).append("<div class='sDiv2'>" + p.findtext + 
 						" <input type='text' value='" + p.query +"' size='30' name='q' class='qsbox' /> "+
 						" <select name='qtype'>" + sopt + "</select></div>");
 				//Split into separate selectors because of bug in jQuery 1.3.2
@@ -1407,7 +1273,7 @@
 				$('tbody', g.nDiv).append('<tr><td class="ndcol1"><input type="checkbox" ' + chk + ' class="togCol" value="' + cn + '" /></td><td class="ndcol2">' + this.innerHTML + '</td></tr>');
 				cn++;
 			});
-			if (browser.msie && browser.version < 7.0) $('tr', g.nDiv).hover(function () {
+			if ($.browser.msie && $.browser.version < 7.0) $('tr', g.nDiv).hover(function () {
 				$(this).addClass('ndcolover');
 			}, function () {
 				$(this).removeClass('ndcolover');
@@ -1417,7 +1283,7 @@
 				return g.toggleCol($(this).prev().find('input').val());
 			});
 			$('input.togCol', g.nDiv).click(function () {
-				if ($('input:checked', g.nDiv).length < p.minColToggle && this.checked === false) return false;
+				if ($('input:checked', g.nDiv).length < p.minColToggle && this.checked == false) return false;
 				$(this).parent().next().trigger('click');
 			});
 			$(g.gDiv).prepend(g.nDiv);
@@ -1460,7 +1326,7 @@
 			g.dragEnd();
 		});
 		//browser adjustments
-		if (browser.msie && browser.version < 7.0) {
+		if ($.browser.msie && $.browser.version < 7.0) {
 			$('.hDiv,.bDiv,.mDiv,.pDiv,.vGrip,.tDiv, .sDiv', g.gDiv).css({
 				width: '100%'
 			});
@@ -1517,31 +1383,47 @@
 			if (this.grid) this.grid.addData(data);
 		});
 	};
+	$.fn.flexSetSelection = function (data) { // function to add data to grid
+		return this.each(function () {
+			if (this.grid) this.grid.setSelection(data);
+		});
+	};
+	$.fn.flexGetSelection = function () { // function to add data to grid
+		var selection = [];
+		this.each(function () {
+			if (this.grid) {
+				selection = this.grid.getSelection();
+			}
+		});
+		return selection;
+	};
+	$.fn.recalcLayout = function() { // function to recalculate the layout (refresh)
+	    return this.each( function() {
+	        if (this.grid) this.grid.recalcLayout();
+	    });
+    }; //end recalcLayout 
 	$.fn.noSelect = function (p) { //no select plugin by me :-)
-		var prevent = (p === null) ? true : p;
+		var prevent = (p == null) ? true : p;
 		if (prevent) {
 			return this.each(function () {
-				if (browser.msie || browser.safari) $(this).bind('selectstart', function () {
+				if ($.browser.msie || $.browser.safari) $(this).bind('selectstart', function () {
 					return false;
 				});
-				else if (browser.mozilla) {
+				else if ($.browser.mozilla) {
 					$(this).css('MozUserSelect', 'none');
 					$('body').trigger('focus');
-				} else if (browser.opera) $(this).bind('mousedown', function () {
+				} else if ($.browser.opera) $(this).bind('mousedown', function () {
 					return false;
 				});
 				else $(this).attr('unselectable', 'on');
 			});
 		} else {
 			return this.each(function () {
-				if (browser.msie || browser.safari) $(this).unbind('selectstart');
-				else if (browser.mozilla) $(this).css('MozUserSelect', 'inherit');
-				else if (browser.opera) $(this).unbind('mousedown');
+				if ($.browser.msie || $.browser.safari) $(this).unbind('selectstart');
+				else if ($.browser.mozilla) $(this).css('MozUserSelect', 'inherit');
+				else if ($.browser.opera) $(this).unbind('mousedown');
 				else $(this).removeAttr('unselectable', 'on');
 			});
 		}
 	}; //end noSelect
-  $.fn.flexSearch = function(p) { // function to search grid
-	return this.each( function() { if (this.grid&&this.p.searchitems) this.grid.doSearch(); });
-  }; //end flexSearch
 })(jQuery);
