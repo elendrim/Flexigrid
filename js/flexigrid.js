@@ -84,7 +84,9 @@
 			onSubmit: false, //using a custom populate function
 			selection: [],
 			saveStateToStorage: false,
-			uniqueId: 'flexigridUID'
+			uniqueId: 'flexigridUID',
+			topBarSelection: false,
+			colMove: false
 		}, p);
 		
 		if ( p.saveStateToStorage ) {
@@ -179,27 +181,30 @@
 						hgo: hgo
 					};
 				} else if (dragtype == 'colMove') {//column header drag
-					$(g.nDiv).hide();
-					$(g.nBtn).hide();
-					this.hset = $(this.hDiv).offset();
-					this.hset.right = this.hset.left + $('table', this.hDiv).width();
-					this.hset.bottom = this.hset.top + $('table', this.hDiv).height();
-					this.dcol = obj;
-					this.dcoln = $('th', this.hDiv).index(obj);
-					this.colCopy = document.createElement("div");
-					this.colCopy.className = "colCopy";
-					this.colCopy.innerHTML = obj.innerHTML;
-					if ($.browser.msie) {
-						this.colCopy.className = "colCopy ie";
-					}
-					$(this.colCopy).css({
-						position: 'absolute',
-						float: 'left',
-						display: 'none',
-						textAlign: obj.align
-					});
-					$('body').append(this.colCopy);
-					$(this.cDrag).hide();
+					$(e.target).disableSelection(); //disable selecting the column header
+                    if((p.colMove === true)) {
+						$(g.nDiv).hide();
+						$(g.nBtn).hide();
+						this.hset = $(this.hDiv).offset();
+						this.hset.right = this.hset.left + $('table', this.hDiv).width();
+						this.hset.bottom = this.hset.top + $('table', this.hDiv).height();
+						this.dcol = obj;
+						this.dcoln = $('th', this.hDiv).index(obj);
+						this.colCopy = document.createElement("div");
+						this.colCopy.className = "colCopy";
+						this.colCopy.innerHTML = obj.innerHTML;
+						if ($.browser.msie) {
+							this.colCopy.className = "colCopy ie";
+						}
+						$(this.colCopy).css({
+							position: 'absolute',
+							float: 'left',
+							display: 'none',
+							textAlign: obj.align
+						});
+						$('body').append(this.colCopy);
+						$(this.cDrag).hide();
+                    }
 				}
 				$('body').noSelect();
 			},
@@ -269,7 +274,7 @@
 					this.vresize = false;
 				} else if (this.colCopy) {
 					$(this.colCopy).remove();
-					if (this.dcolt != null) {
+					if (this.dcolt !== null) {
 						if (this.dcoln > this.dcolt) $('th:eq(' + this.dcolt + ')', this.hDiv).before(this.dcol);
 						else $('th:eq(' + this.dcolt + ')', this.hDiv).after(this.dcol);
 						this.switchCol(this.dcoln, this.dcolt);
@@ -365,7 +370,7 @@
 				} else {
 					p.total = data.total;
 				}
-				if (p.total == 0) {
+				if (p.total === 0) {
 					$('tr, a, td, div', t).unbind();
 					$(t).empty();
 					p.pages = 1;
@@ -487,6 +492,16 @@
 				}
 				this.ie9Fix();
 			},
+			addError : function (XMLHttpRequest, textStatus, errorThrown) { // set the message on the pageStat when ajax call throw an error.
+				$('.pReload', this.pDiv).removeClass('loading');
+				this.loading = false;
+				$('tr, a, td, div', t).unbind();
+				$(t).empty();
+				p.pages = 1;
+				p.page = 1;
+				this.buildpager();
+				$('.pPageStat', this.pDiv).html(XMLHttpRequest.status+ " | "+ textStatus + ": "+ errorThrown);
+			},
 			changeSort: function (th) { //change sortorder
 				if (this.loading) {
 					return true;
@@ -589,6 +604,7 @@
 						g.addData(data);
 					},
 					error: function (XMLHttpRequest, textStatus, errorThrown) {
+						g.addError(XMLHttpRequest, textStatus, errorThrown);
 						try {
 							if (p.onError) p.onError(XMLHttpRequest, textStatus, errorThrown);
 						} catch (e) {}
@@ -766,18 +782,22 @@
 						searchListSelection = Array();
 					} else {
 						$('tbody tr', g.bDiv).each( function(){
-				            var id = $(this).attr('id').substr(3);
-				            if ( jQuery.inArray(id, searchListSelection) != -1 ) {
-				            	searchListSelection.splice(jQuery.inArray(id, searchListSelection), 1);
-				            }
+							if ( $(this).attr('id') != null ) {
+					            var id = $(this).attr('id').substr(3);
+					            if ( jQuery.inArray(id, searchListSelection) != -1 ) {
+					            	searchListSelection.splice(jQuery.inArray(id, searchListSelection), 1);
+					            }
+							}
 				        });
 					}
 				
 			        $('.trSelected', g.bDiv).each( function(){
-			            var id = $(this).attr('id').substr(3);
-			            if ( jQuery.inArray(id, searchListSelection) == -1  ) {
-			                searchListSelection.push(id);
-			            }
+			        	if ( $(this).attr('id') != null ) {
+				            var id = $(this).attr('id').substr(3);
+				            if ( jQuery.inArray(id, searchListSelection) == -1  ) {
+				                searchListSelection.push(id);
+				            }
+			        	}
 			        });
 				} 
 				
@@ -803,25 +823,92 @@
 			        });
 		        } else if ( searchListSelection.length > 0 ) {
 		        	$("tbody tr", g.bDiv).each( function() {
-			            var id = $(this).attr('id').substr(3);
-			            if ( jQuery.inArray(id, searchListSelection) != -1 ) {
-			                $(this).addClass("trSelected");
-			            } else {
-			            	$(this).removeClass("trSelected");
-			            }
+		        		if ( $(this).attr('id') != null ) {
+				            var id = $(this).attr('id').substr(3);
+				            if ( jQuery.inArray(id, searchListSelection) != -1 ) {
+				                $(this).addClass("trSelected");
+				            } else {
+				            	$(this).removeClass("trSelected");
+				            }
+		        		}
 			        });
 		        } else {
 		        	$("tbody tr", g.bDiv).each( function() {
 			            $(this).removeClass("trSelected");
 			        });
 		        }
+		        
+		        if ( p.topBarSelection ) {
+		        	this.refreshTopBarSelection();
+				}
+		        
+		    },
+		    
+		    refreshTopBarSelection : function() {
+		    	
+		    	var searchListSelection = p.selection;
+				
+		        if ( searchListSelection == -1 ) {
+		        	
+		        	var text = '';
+		        	text += '<strong>' + p.total +'</strong> lignes sont sélectionnées. ';
+		        	text += '<strong><u><a href="#" id="unSelectAllMultiPage">Effacer la sélection</a></u></strong> ';
+		        	$('#selecttext').html(text);
+		        	
+		        	$('#unSelectAllMultiPage').click(function (){
+		        		g.setSelection([]);
+				        return false;
+		        	});
+		        	
+		        	$('#selection').removeClass('ui-state-highlight');
+		        	$('#selection').addClass('ui-state-error');
+		        	$('#selection').css('visibility', 'visible');
+		        	
+		        } else if ( searchListSelection.length > 0 ) {
+		        
+		        	var text = '';
+		        	
+		        	if ( searchListSelection.length == 1 ) {
+		        		text += '<strong>' + searchListSelection.length +'</strong> ligne est sélectionnée. ';
+		        		text += '<strong><u><a href="#" id="unSelectAllMultiPage">Déselectionner la ligne</a></u></strong> ';
+		        	} else {
+		        		text += '<strong>' + searchListSelection.length +'</strong> lignes sont sélectionnées. ';
+		        		text += '<strong><u><a href="#" id="unSelectAllMultiPage">Déselectionner les ' + searchListSelection.length +' lignes</a></u></strong> ';
+		        	}
+		        	
+		        	
+		        	if ( p.total == 1 )  {
+		        		text += ' | <strong><u><a href="#" id="selectAllMultiPage">Sélectionner la ligne</a></u></strong>';
+		        	} else {
+		        		text += ' | <strong><u><a href="#" id="selectAllMultiPage">Sélectionner les '+ p.total +' lignes</a></u></strong>';
+		        	}
+		        	
+		        	$('#selecttext').html(text);	
+		        	
+		        	$('#unSelectAllMultiPage').click(function (){
+		        		g.setSelection([]);
+				        return false;
+		        	});
+		        	
+		        	$('#selectAllMultiPage').click(function (){
+		        		g.setSelection(-1);
+				        return false;
+		        	});
+		        	$('#selection').removeClass('ui-state-error');
+		        	$('#selection').addClass('ui-state-highlight');
+		        	$('#selection').css('visibility', 'visible');
+		        } else {
+		        	
+		        	$('#selection').css('visibility', 'hidden');
+		        }
+		    	
 		    },
 		    
 		    /**
 		     * ie9 FIX added by ADGOL01
 		     */
 		    ie9Fix: function() {
-				if ($.browser.msie && $.browser.version >= 9.0) {
+				if ($.browser.msie && $.browser.version == 9.0) {
 					var bDivH = $(this.bDiv).height();
 			        var bDivTH = $('table', this.bDiv).height();
 			        if(bDivH != bDivTH && p.height=='auto') {
@@ -840,6 +927,38 @@
 			    $('div',g.cDrag).each ( function() {
 			    	$(this).css({height: cdheight + hdheight});
 		     	});
+			},
+			
+			selectAll : function () {
+				
+				 var searchListSelection = p.selection;
+				
+				if ( searchListSelection != -1 ) {
+					$("tbody tr", g.bDiv).each( function(){
+			            var id = $(this).attr('id').substr(3);
+			            if ( jQuery.inArray(id, searchListSelection) == -1 ) {
+			            	searchListSelection.push(id);
+			            }
+			        });
+				}
+				
+				g.setSelection(searchListSelection);
+			},
+			
+			unSelectAll : function ()  {
+				
+				 var searchListSelection = p.selection;
+				
+				if ( searchListSelection != -1 ) {
+					$('.trSelected', g.bDiv).each( function(){
+			            var id = $(this).attr('id').substr(3);
+			            if ( jQuery.inArray(id, searchListSelection) != -1  ) {
+			            	searchListSelection.splice(jQuery.inArray(id, searchListSelection), 1);
+			            }
+			        });
+				}
+				
+				g.setSelection(searchListSelection);
 			},
 			
 			pager: 0
@@ -885,8 +1004,14 @@
 		g.nBtn = document.createElement('div'); //create column show/hide button
 		g.iDiv = document.createElement('div'); //create editable layer
 		g.tDiv = document.createElement('div'); //create toolbar
+		g.tsDiv = document.createElement('div'); //create toolbar top selection
 		g.sDiv = document.createElement('div');
 		g.pDiv = document.createElement('div'); //create pager container
+		
+        if(p.colResize === false) { //don't display column drag if we are not using it
+            $(g.cDrag).css('display', 'none');
+        }
+		
 		if (!p.usepager) {
 			g.pDiv.style.display = 'none';
 		}
@@ -904,6 +1029,7 @@
 		}
 		$(t).before(g.gDiv);
 		$(g.gDiv).append(t);
+		
 		//set toolbar
 		if (p.buttons) {
 			g.tDiv.className = 'tDiv';
@@ -941,6 +1067,18 @@
 			$(g.tDiv).append("<div style='clear:both'></div>");
 			$(g.gDiv).prepend(g.tDiv);
 		}
+		
+		// set topSelectionBar :
+		if (p.topBarSelection) {
+			$(g.tsDiv).append('<div id="selection" class="ui-widget ui-state-highlight ui-corner-all" style="padding: 0 .7em;">'
+								+'<p id="selecttext">&nbsp;</p>'
+								+'</div>');
+			$(g.gDiv).prepend(g.tsDiv);
+			
+			$('#selection').css('visibility', 'hidden');
+			
+		}
+		
 		g.hDiv.className = 'hDiv';
 		$(t).before(g.hDiv);
 		g.hTable.cellPadding = 0;
@@ -1055,50 +1193,52 @@
 		g.addCellProp();
 		g.addRowProp();
 		//set cDrag
-		var cdcol = $('thead tr:first th:first', g.hDiv).get(0);
-		if (cdcol != null) {
-			g.cDrag.className = 'cDrag';
-			g.cdpad = 0;
-			
-			g.cdpad += (isNaN(parseFloat($('div', cdcol).css('borderLeftWidth'), 10)) ? 0 : Math.round(parseFloat($('div', cdcol).css('borderLeftWidth'), 10)));
-			g.cdpad += (isNaN(parseFloat($('div', cdcol).css('borderRightWidth'), 10)) ? 0 : Math.round(parseFloat($('div', cdcol).css('borderRightWidth'), 10)));
-			g.cdpad += (isNaN(parseFloat($('div', cdcol).css('paddingLeft'), 10)) ? 0 : Math.round(parseFloat($('div', cdcol).css('paddingLeft'), 10)));
-			g.cdpad += (isNaN(parseFloat($('div', cdcol).css('paddingRight'), 10)) ? 0 : Math.round(parseFloat($('div', cdcol).css('paddingRight'), 10)));
-			g.cdpad += (isNaN(parseFloat($(cdcol).css('borderLeftWidth'), 10)) ? 0 : Math.round(parseFloat($(cdcol).css('borderLeftWidth'), 10)));
-			g.cdpad += (isNaN(parseFloat($(cdcol).css('borderRightWidth'), 10)) ? 0 : Math.round(parseFloat($(cdcol).css('borderRightWidth'), 10)));
-			g.cdpad += (isNaN(parseFloat($(cdcol).css('paddingLeft'), 10)) ? 0 : Math.round(parseFloat($(cdcol).css('paddingLeft'), 10)));
-			g.cdpad += (isNaN(parseFloat($(cdcol).css('paddingRight'), 10)) ? 0 : Math.round(parseFloat($(cdcol).css('paddingRight'), 10)));
-			
-			
-			$(g.bDiv).before(g.cDrag);
-			var cdheight = $(g.bDiv).height();
-			var hdheight = $(g.hDiv).height();
-			$(g.cDrag).css({
-				top: -hdheight + 'px'
-			});
-			$('thead tr:first th', g.hDiv).each(function () {
-				var cgDiv = document.createElement('div');
-				$(g.cDrag).append(cgDiv);
-				if (!p.cgwidth) {
-					p.cgwidth = $(cgDiv).width();
-				}
-				$(cgDiv).css({
-					height: cdheight + hdheight
-				}).mousedown(function (e) {
-					g.dragStart('colresize', e, this);
+		if (p.colResize === true) {
+			var cdcol = $('thead tr:first th:first', g.hDiv).get(0);
+			if (cdcol !== null) {
+				g.cDrag.className = 'cDrag';
+				g.cdpad = 0;
+				
+				g.cdpad += (isNaN(parseFloat($('div', cdcol).css('borderLeftWidth'), 10)) ? 0 : Math.round(parseFloat($('div', cdcol).css('borderLeftWidth'), 10)));
+				g.cdpad += (isNaN(parseFloat($('div', cdcol).css('borderRightWidth'), 10)) ? 0 : Math.round(parseFloat($('div', cdcol).css('borderRightWidth'), 10)));
+				g.cdpad += (isNaN(parseFloat($('div', cdcol).css('paddingLeft'), 10)) ? 0 : Math.round(parseFloat($('div', cdcol).css('paddingLeft'), 10)));
+				g.cdpad += (isNaN(parseFloat($('div', cdcol).css('paddingRight'), 10)) ? 0 : Math.round(parseFloat($('div', cdcol).css('paddingRight'), 10)));
+				g.cdpad += (isNaN(parseFloat($(cdcol).css('borderLeftWidth'), 10)) ? 0 : Math.round(parseFloat($(cdcol).css('borderLeftWidth'), 10)));
+				g.cdpad += (isNaN(parseFloat($(cdcol).css('borderRightWidth'), 10)) ? 0 : Math.round(parseFloat($(cdcol).css('borderRightWidth'), 10)));
+				g.cdpad += (isNaN(parseFloat($(cdcol).css('paddingLeft'), 10)) ? 0 : Math.round(parseFloat($(cdcol).css('paddingLeft'), 10)));
+				g.cdpad += (isNaN(parseFloat($(cdcol).css('paddingRight'), 10)) ? 0 : Math.round(parseFloat($(cdcol).css('paddingRight'), 10)));
+				
+				
+				$(g.bDiv).before(g.cDrag);
+				var cdheight = $(g.bDiv).height();
+				var hdheight = $(g.hDiv).height();
+				$(g.cDrag).css({
+					top: -hdheight + 'px'
 				});
-				if ($.browser.msie && $.browser.version < 7.0) {
-					g.fixHeight($(g.gDiv).height());
-					$(cgDiv).hover(function () {
-						g.fixHeight();
-						$(this).addClass('dragging');
-					}, function () {
-						if (!g.colresize) {
-							$(this).removeClass('dragging');
-						}
+				$('thead tr:first th', g.hDiv).each(function () {
+					var cgDiv = document.createElement('div');
+					$(g.cDrag).append(cgDiv);
+					if (!p.cgwidth) {
+						p.cgwidth = $(cgDiv).width();
+					}
+					$(cgDiv).css({
+						height: cdheight + hdheight
+					}).mousedown(function (e) {
+						g.dragStart('colresize', e, this);
 					});
-				}
-			});
+					if ($.browser.msie && $.browser.version < 7.0) {
+						g.fixHeight($(g.gDiv).height());
+						$(cgDiv).hover(function () {
+							g.fixHeight();
+							$(this).addClass('dragging');
+						}, function () {
+							if (!g.colresize) {
+								$(this).removeClass('dragging');
+							}
+						});
+					}
+				});
+			}
 		}
 		//add strip
 		if (p.striped) {
@@ -1187,7 +1327,7 @@
 				var sitems = p.searchitems;
 				var sopt = '', sel = '';
 				for (var s = 0; s < sitems.length; s++) {
-					if (p.qtype == '' && sitems[s].isdefault == true) {
+					if (p.qtype === '' && sitems[s].isdefault === true) {
 						p.qtype = sitems[s].name;
 						sel = 'selected="selected"';
 					} else {
@@ -1195,10 +1335,10 @@
 					}
 					sopt += "<option value='" + sitems[s].name + "' " + sel + " >" + sitems[s].display + "&nbsp;&nbsp;</option>";
 				}
-				if (p.qtype == '') {
+				if (p.qtype === '') {
 					p.qtype = sitems[0].name;
 				}
-				$(g.sDiv).append("<div class='sDiv2'>" + p.findtext + 
+				$(g.sDiv).append("<div class='sDiv2'>" + p.findtext +
 						" <input type='text' value='" + p.query +"' size='30' name='q' class='qsbox' /> "+
 						" <select name='qtype'>" + sopt + "</select></div>");
 				//Split into separate selectors because of bug in jQuery 1.3.2
@@ -1283,7 +1423,7 @@
 				return g.toggleCol($(this).prev().find('input').val());
 			});
 			$('input.togCol', g.nDiv).click(function () {
-				if ($('input:checked', g.nDiv).length < p.minColToggle && this.checked == false) return false;
+				if ($('input:checked', g.nDiv).length < p.minColToggle && this.checked === false) return false;
 				$(this).parent().next().trigger('click');
 			});
 			$(g.gDiv).prepend(g.nDiv);
@@ -1397,13 +1537,23 @@
 		});
 		return selection;
 	};
+	$.fn.flexSelectAll = function () { // function to select all
+		return this.each(function () {
+			if (this.grid) this.grid.selectAll();
+		});
+	};
+	$.fn.flexUnSelectAll = function () { // function to unselect all
+		return this.each(function () {
+			if (this.grid) this.grid.unSelectAll();
+		});
+	};
 	$.fn.recalcLayout = function() { // function to recalculate the layout (refresh)
 	    return this.each( function() {
 	        if (this.grid) this.grid.recalcLayout();
 	    });
     }; //end recalcLayout 
 	$.fn.noSelect = function (p) { //no select plugin by me :-)
-		var prevent = (p == null) ? true : p;
+		var prevent = (p === null) ? true : p;
 		if (prevent) {
 			return this.each(function () {
 				if ($.browser.msie || $.browser.safari) $(this).bind('selectstart', function () {
