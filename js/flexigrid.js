@@ -21,21 +21,34 @@
 	
 	$.saveStateToSessionStorage = function(p) {
 		
-		var param = {
-			'newp': p.page,
-			'rp': p.rp,
-			'sortname': p.sortname,
-			'sortorder': p.sortorder,
-			'query': p.query,
-			'qtype': p.qtype,
-			'selection': p.selection
-		};
+		var param = {};
+		
+		if ( p.savePaging ) {
+			param = $.extend(param,{
+				'newp': p.page,
+				'rp': p.rp,
+				'sortname': p.sortname,
+				'sortorder': p.sortorder,
+				'query': p.query,
+				'qtype': p.qtype 
+			});
+		}
+		
+		if ( p.saveSelection ) {
+			param = $.extend(param, {
+				'selection': p.selection
+			});
+		}
 		
 		if ( window.console ) {
 			console.log('selection:'+param.selection);
 		}
 		
 		sessionStorage.setItem(p.uniqueId, JSON.stringify(param));
+	},
+	
+	$.removeStateToSessionStorage = function(p) {
+		sessionStorage.removeItem(p.uniqueId);
 	},
 	
 	$.addFlex = function (t, p) {
@@ -84,9 +97,12 @@
 			onSubmit: false, //using a custom populate function
 			selection: [],
 			saveStateToStorage: false,
+			saveSelection: true,
+			savePaging: true,
 			uniqueId: 'flexigridUID',
 			topBarSelection: false,
-			colMove: false
+			colResize: true, //from: http://stackoverflow.com/a/10615589
+            colMove: false
 		}, p);
 		
 		if ( p.saveStateToStorage ) {
@@ -181,7 +197,7 @@
 						hgo: hgo
 					};
 				} else if (dragtype == 'colMove') {//column header drag
-					$(e.target).disableSelection(); //disable selecting the column header
+//					$(e.target).disableSelection(); //disable selecting the column header
                     if((p.colMove === true)) {
 						$(g.nDiv).hide();
 						$(g.nBtn).hide();
@@ -961,6 +977,12 @@
 				g.setSelection(searchListSelection);
 			},
 			
+			removeStateToSessionStorage : function () {
+				if ( p.saveStateToStorage ) {
+					$.removeStateToSessionStorage(p);
+				}
+			},
+			
 			pager: 0
 		};
 		if (p.colModel) { //create model if any
@@ -1552,6 +1574,11 @@
 	        if (this.grid) this.grid.recalcLayout();
 	    });
     }; //end recalcLayout 
+    $.fn.removeStateToSessionStorage = function() { // function to recalculate the layout (refresh)
+	    return this.each( function() {
+	        if (this.grid) this.grid.removeStateToSessionStorage();
+	    });
+    }; 
 	$.fn.noSelect = function (p) { //no select plugin by me :-)
 		var prevent = (p === null) ? true : p;
 		if (prevent) {
